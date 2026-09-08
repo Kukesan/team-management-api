@@ -13,4 +13,7 @@ public static class ClaimsPrincipalExtensions
 
     public static IList<string> GetRoles(this ClaimsPrincipal user) =>
         user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+
+    public static string GetFullName(this ClaimsPrincipal user) =>
+        user.FindFirstValue(ClaimTypes.Name) ?? string.Empty;
 }

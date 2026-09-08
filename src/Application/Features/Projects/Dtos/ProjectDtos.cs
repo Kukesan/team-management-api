@@ -12,6 +12,15 @@ public class ProjectDto
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public IList<ProjectMemberDto> AssignedUsers { get; set; } = new List<ProjectMemberDto>();
+}
+
+public class ProjectMemberDto
+{
+    public Guid UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public DateTime AssignedAt { get; set; }
 }
 
 public class CreateProjectRequest
@@ -30,6 +39,16 @@ public class UpdateProjectRequest
 public class AssignUserRequest
 {
     public Guid UserId { get; set; }
+}
+
+public class AssignUsersRequest
+{
+    public List<Guid> UserIds { get; set; } = new();
+}
+
+public class UnassignUsersRequest
+{
+    public List<Guid> UserIds { get; set; } = new();
 }
 
 public class ProjectAssignmentDto

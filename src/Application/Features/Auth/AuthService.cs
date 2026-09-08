@@ -67,6 +67,49 @@ public class AuthService : IAuthService
         return await BuildAuthResponseAsync(user);
     }
 
+    public async Task<UserSummaryDto> UpdateProfileAsync(Guid userId, UpdateProfileRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("User", userId);
+
+        user.FullName = request.FullName;
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            throw new ValidationAppException(new Dictionary<string, string[]>
+            {
+                ["FullName"] = updateResult.Errors.Select(e => e.Description).ToArray()
+            });
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+        return new UserSummaryDto
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email!,
+            Roles = roles
+        };
+    }
+
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("User", userId);
+
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            // "Incorrect password" comes back as PasswordMismatch on CurrentPassword; every
+            // other failure (complexity, reuse, etc.) is about the new password's shape.
+            var key = result.Errors.Any(e => e.Code == "PasswordMismatch") ? "CurrentPassword" : "NewPassword";
+            throw new ValidationAppException(new Dictionary<string, string[]>
+            {
+                [key] = result.Errors.Select(e => e.Description).ToArray()
+            });
+        }
+    }
+
     private async Task<AuthResponse> BuildAuthResponseAsync(ApplicationUser user)
     {
         var roles = await _userManager.GetRolesAsync(user);

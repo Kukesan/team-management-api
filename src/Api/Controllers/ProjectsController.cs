@@ -67,4 +67,28 @@ public class ProjectsController : ControllerBase
         var result = await _projectService.AssignUserAsync(id, request.UserId, ct);
         return Ok(result);
     }
+
+    [HttpPost("{id:guid}/assign-bulk")]
+    [Authorize(Roles = Roles.ManagerOrAdminCsv)]
+    public async Task<ActionResult<IList<ProjectAssignmentDto>>> AssignUsers(Guid id, AssignUsersRequest request, CancellationToken ct)
+    {
+        var result = await _projectService.AssignUsersAsync(id, request.UserIds, ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}/assign/{userId:guid}")]
+    [Authorize(Roles = Roles.ManagerOrAdminCsv)]
+    public async Task<IActionResult> UnassignUser(Guid id, Guid userId, CancellationToken ct)
+    {
+        await _projectService.UnassignUserAsync(id, userId, ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/unassign-bulk")]
+    [Authorize(Roles = Roles.ManagerOrAdminCsv)]
+    public async Task<IActionResult> UnassignUsers(Guid id, UnassignUsersRequest request, CancellationToken ct)
+    {
+        await _projectService.UnassignUsersAsync(id, request.UserIds, ct);
+        return NoContent();
+    }
 }

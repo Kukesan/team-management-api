@@ -1,3 +1,4 @@
+using Api.Extensions;
 using Application.Features.Auth;
 using Application.Features.Auth.Dtos;
 using Microsoft.AspNetCore.Authorization;
@@ -40,4 +41,20 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     [Authorize]
     public IActionResult Logout() => NoContent();
+
+    [HttpPatch("me")]
+    [Authorize]
+    public async Task<ActionResult<UserSummaryDto>> UpdateProfile(UpdateProfileRequest request)
+    {
+        var result = await _authService.UpdateProfileAsync(User.GetUserId(), request);
+        return Ok(result);
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request)
+    {
+        await _authService.ChangePasswordAsync(User.GetUserId(), request);
+        return NoContent();
+    }
 }

@@ -27,12 +27,12 @@ public class ReportService : IReportService
             throw new NotFoundException("Project", request.ProjectId);
         }
 
-        var duplicate = await _db.Reports.AnyAsync(
-            r => r.UserId == userId && r.ProjectId == request.ProjectId && r.WeekStartDate == request.WeekStartDate, ct);
-        if (duplicate)
-        {
-            throw new ConflictException("A report for this project and week already exists.");
-        }
+        // var duplicate = await _db.Reports.AnyAsync(
+        //     r => r.UserId == userId && r.ProjectId == request.ProjectId && r.WeekStartDate == request.WeekStartDate, ct);
+        // if (duplicate)
+        // {
+        //     throw new ConflictException("A report for this project and week already exists.");
+        // }
 
         var report = new Report
         {
@@ -301,7 +301,7 @@ public class ReportService : IReportService
             .FirstOrDefaultAsync(ct)
             ?? throw new InvalidOperationException($"Report {reportId} is Submitted but has no ReportVersion.");
 
-        var action = request.Action == "Approve" ? ReviewAction.Approved : ReviewAction.RequestedChanges;
+        var action = request.Action == "Approved" ? ReviewAction.Approved : ReviewAction.RequestedChanges;
 
         // Status/comment are the ONLY things this method touches — TaskItems/Blockers/
         // Achievements/HoursBreakdown are never written here, by design.

@@ -5,7 +5,7 @@ namespace Application.Features.Reports.Validators;
 
 public class ReviewRequestValidator : AbstractValidator<ReviewRequest>
 {
-    private static readonly string[] AllowedActions = { "Approve", "RequestChanges" };
+    private static readonly string[] AllowedActions = { "Approved", "RequestedChanges" };
 
     public ReviewRequestValidator()
     {
@@ -17,6 +17,6 @@ public class ReviewRequestValidator : AbstractValidator<ReviewRequest>
         RuleFor(x => x.Comment)
             .NotEmpty()
             .WithMessage("Comment is required when requesting changes.")
-            .When(x => x.Action == "RequestChanges");
+            .When(x => x.Action == "RequestedChanges");
     }
 }

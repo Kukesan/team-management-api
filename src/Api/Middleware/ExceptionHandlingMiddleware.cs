@@ -2,6 +2,8 @@ using System.Net;
 using System.Text.Json;
 using Application.Common.Exceptions;
 using Application.Common.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Api.Middleware;
 
@@ -9,11 +11,16 @@ public class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
 
-    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger, IOptions<JsonOptions> jsonOptions)
     {
         _next = next;
         _logger = logger;
+        // Reuse the same options MVC serializes normal responses with (camelCase),
+        // otherwise this hand-rolled write falls back to JsonSerializer's PascalCase
+        // default and error bodies stop matching every other endpoint's casing.
+        _jsonOptions = jsonOptions.Value.JsonSerializerOptions;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -55,6 +62,6 @@ public class ExceptionHandlingMiddleware
             Errors = errors
         };
 
-        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
     }
 }

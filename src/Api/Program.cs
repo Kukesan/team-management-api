@@ -5,6 +5,7 @@ using Api.Middleware;
 using Application.Common.Interfaces;
 using Application.Common.Models;
 using Application.Common.Settings;
+using Application.Features.Ai;
 using Application.Features.Auth;
 using Application.Features.Auth.Validators;
 using Application.Features.Dashboard;
@@ -18,6 +19,7 @@ using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -113,6 +115,20 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+builder.Services.Configure<AiServiceSettings>(builder.Configuration.GetSection(AiServiceSettings.SectionName));
+builder.Services.AddHttpClient(AiService.HttpClientName, (sp, client) =>
+{
+    var aiSettings = sp.GetRequiredService<IOptions<AiServiceSettings>>().Value;
+    if (!string.IsNullOrWhiteSpace(aiSettings.BaseUrl))
+    {
+        client.BaseAddress = new Uri(aiSettings.BaseUrl);
+    }
+    // Chat/summary calls involve an LLM round trip (plus, for summary, a Claude tool-use
+    // loop) so they run longer than typical CRUD calls to this API.
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddScoped<IAiService, AiService>();
 
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
     ?? throw new InvalidOperationException("Jwt configuration section is missing.");

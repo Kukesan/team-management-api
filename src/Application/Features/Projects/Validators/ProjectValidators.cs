@@ -28,3 +28,21 @@ public class AssignUserRequestValidator : AbstractValidator<AssignUserRequest>
         RuleFor(x => x.UserId).NotEmpty();
     }
 }
+
+public class AssignUsersRequestValidator : AbstractValidator<AssignUsersRequest>
+{
+    public AssignUsersRequestValidator()
+    {
+        RuleFor(x => x.UserIds).NotEmpty();
+        RuleForEach(x => x.UserIds).NotEmpty();
+    }
+}
+
+public class UnassignUsersRequestValidator : AbstractValidator<UnassignUsersRequest>
+{
+    public UnassignUsersRequestValidator()
+    {
+        RuleFor(x => x.UserIds).NotEmpty();
+        RuleForEach(x => x.UserIds).NotEmpty();
+    }
+}

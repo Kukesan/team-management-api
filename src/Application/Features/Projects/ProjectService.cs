@@ -18,7 +18,10 @@ public class ProjectService : IProjectService
 
     public async Task<PagedResult<ProjectDto>> GetAllAsync(ProjectQueryParameters query, CancellationToken ct = default)
     {
-        var projects = _db.Projects.AsNoTracking().Include(p => p.CreatedBy).AsQueryable();
+        var projects = _db.Projects.AsNoTracking()
+            .Include(p => p.CreatedBy)
+            .Include(p => p.Assignments).ThenInclude(a => a.User)
+            .AsQueryable();
 
         if (query.IsActive.HasValue)
         {
@@ -57,7 +60,9 @@ public class ProjectService : IProjectService
 
     public async Task<ProjectDto> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        var project = await _db.Projects.AsNoTracking().Include(p => p.CreatedBy)
+        var project = await _db.Projects.AsNoTracking()
+            .Include(p => p.CreatedBy)
+            .Include(p => p.Assignments).ThenInclude(a => a.User)
             .FirstOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new NotFoundException("Project", id);
 
@@ -151,6 +156,85 @@ public class ProjectService : IProjectService
         };
     }
 
+    public async Task<IList<ProjectAssignmentDto>> AssignUsersAsync(Guid projectId, IList<Guid> userIds, CancellationToken ct = default)
+    {
+        var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId, ct);
+        if (!projectExists)
+        {
+            throw new NotFoundException("Project", projectId);
+        }
+
+        var distinctUserIds = userIds.Distinct().ToList();
+
+        var users = await _db.Users
+            .Where(u => distinctUserIds.Contains(u.Id))
+            .ToListAsync(ct);
+
+        var missingIds = distinctUserIds.Except(users.Select(u => u.Id)).ToList();
+        if (missingIds.Count > 0)
+        {
+            throw new NotFoundException($"User(s) with id(s) '{string.Join(", ", missingIds)}' were not found.");
+        }
+
+        var alreadyAssignedIds = await _db.ProjectAssignments
+            .Where(a => a.ProjectId == projectId && distinctUserIds.Contains(a.UserId))
+            .Select(a => a.UserId)
+            .ToListAsync(ct);
+
+        // Already-assigned users are skipped rather than rejected, so re-selecting an
+        // existing member alongside new ones doesn't fail the whole batch.
+        var toAssign = users.Where(u => !alreadyAssignedIds.Contains(u.Id)).ToList();
+        var now = DateTime.UtcNow;
+
+        var assignments = toAssign.Select(u => new ProjectAssignment
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = projectId,
+            UserId = u.Id,
+            AssignedAt = now
+        }).ToList();
+
+        if (assignments.Count > 0)
+        {
+            _db.ProjectAssignments.AddRange(assignments);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return assignments.Select(a => new ProjectAssignmentDto
+        {
+            Id = a.Id,
+            ProjectId = projectId,
+            UserId = a.UserId,
+            UserFullName = toAssign.First(u => u.Id == a.UserId).FullName,
+            AssignedAt = a.AssignedAt
+        }).ToList();
+    }
+
+    public async Task UnassignUserAsync(Guid projectId, Guid userId, CancellationToken ct = default)
+    {
+        var assignment = await _db.ProjectAssignments
+            .FirstOrDefaultAsync(a => a.ProjectId == projectId && a.UserId == userId, ct)
+            ?? throw new NotFoundException("This user is not assigned to the project.");
+
+        _db.ProjectAssignments.Remove(assignment);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task UnassignUsersAsync(Guid projectId, IList<Guid> userIds, CancellationToken ct = default)
+    {
+        var distinctUserIds = userIds.Distinct().ToList();
+
+        var assignments = await _db.ProjectAssignments
+            .Where(a => a.ProjectId == projectId && distinctUserIds.Contains(a.UserId))
+            .ToListAsync(ct);
+
+        if (assignments.Count > 0)
+        {
+            _db.ProjectAssignments.RemoveRange(assignments);
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+
     private static ProjectDto MapDto(Project p) => new()
     {
         Id = p.Id,
@@ -160,6 +244,16 @@ public class ProjectService : IProjectService
         CreatedById = p.CreatedById,
         CreatedByName = p.CreatedBy.FullName,
         CreatedAt = p.CreatedAt,
-        UpdatedAt = p.UpdatedAt
+        UpdatedAt = p.UpdatedAt,
+        AssignedUsers = p.Assignments
+            .OrderBy(a => a.User.FullName)
+            .Select(a => new ProjectMemberDto
+            {
+                UserId = a.UserId,
+                FullName = a.User.FullName,
+                Email = a.User.Email ?? string.Empty,
+                AssignedAt = a.AssignedAt
+            })
+            .ToList()
     };
 }
