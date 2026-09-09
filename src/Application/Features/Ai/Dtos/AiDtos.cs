@@ -25,3 +25,20 @@ public class SummaryResponseDto
     public Guid? ProjectId { get; set; }
     public DateTime GeneratedAt { get; set; }
 }
+
+public class HelpMessageDto
+{
+    public string Role { get; set; } = string.Empty; // "user" | "assistant"
+    public string Content { get; set; } = string.Empty;
+}
+
+public class HelpRequestDto
+{
+    public string Message { get; set; } = string.Empty;
+    public IList<HelpMessageDto> History { get; set; } = new List<HelpMessageDto>();
+}
+
+public class HelpResponseDto
+{
+    public string Answer { get; set; } = string.Empty;
+}

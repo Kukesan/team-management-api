@@ -61,6 +61,26 @@ public class AiService : IAiService
         };
     }
 
+    public async Task<HelpResponseDto> HelpAsync(
+        Guid userId, string userName, IList<string> roles, HelpRequestDto request, CancellationToken ct = default)
+    {
+        var client = CreateClient(userId, userName, roles);
+
+        var body = new
+        {
+            message = request.Message,
+            history = request.History.Select(h => new { role = h.Role, content = h.Content })
+        };
+
+        using var response = await client.PostAsJsonAsync("/help", body, ct);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<FastApiHelpResponse>(cancellationToken: ct)
+            ?? throw new InvalidOperationException("AI service returned an empty help response.");
+
+        return new HelpResponseDto { Answer = result.Answer };
+    }
+
     private HttpClient CreateClient(Guid userId, string userName, IList<string> roles)
     {
         // BaseAddress/Timeout are configured once via AddHttpClient(HttpClientName, ...) in
@@ -99,5 +119,11 @@ public class AiService : IAiService
 
         [JsonPropertyName("generated_at")]
         public DateTime GeneratedAt { get; set; }
+    }
+
+    private class FastApiHelpResponse
+    {
+        [JsonPropertyName("answer")]
+        public string Answer { get; set; } = string.Empty;
     }
 }

@@ -12,4 +12,9 @@ public interface IAiService
 
     Task<SummaryResponseDto> GetSummaryAsync(
         Guid userId, string userName, IList<string> roles, DateOnly weekStart, Guid? projectId, CancellationToken ct = default);
+
+    /// <summary>Product how-to Q&amp;A, open to every role (not just Manager/Admin) -- the FastAPI
+    /// side answers purely from a role-filtered documentation file, with no DB access.</summary>
+    Task<HelpResponseDto> HelpAsync(
+        Guid userId, string userName, IList<string> roles, HelpRequestDto request, CancellationToken ct = default);
 }
