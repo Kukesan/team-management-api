@@ -73,4 +73,73 @@ public class UserServiceTests
 
         Assert.Equal(new[] { Roles.Manager }, result.Roles);
     }
+
+    [Fact]
+    public async Task InviteAsync_NewEmail_CreatesAccountWithUsableTemporaryPassword()
+    {
+        using var host = await IdentityTestHost.CreateAsync(Roles.Admin, Roles.Manager, Roles.TeamMember);
+        var admin = await host.CreateUserAsync("Admin", Roles.Admin);
+        var service = new UserService(host.UserManager);
+
+        var result = await service.InviteAsync(admin.Id, new InviteUserRequest
+        {
+            FullName = "New Hire",
+            Email = "new.hire@test.local",
+            Role = Roles.TeamMember
+        });
+
+        Assert.Equal("new.hire@test.local", result.Email);
+        Assert.Equal(new[] { Roles.TeamMember }, result.Roles);
+        Assert.NotEmpty(result.TemporaryPassword);
+
+        // The returned password must actually satisfy Identity's own policy and let the
+        // new account sign in -- not just look plausible.
+        var created = await host.UserManager.FindByEmailAsync("new.hire@test.local");
+        Assert.NotNull(created);
+        var canSignIn = await host.UserManager.CheckPasswordAsync(created!, result.TemporaryPassword);
+        Assert.True(canSignIn);
+    }
+
+    [Fact]
+    public async Task InviteAsync_DuplicateEmail_ThrowsConflict()
+    {
+        using var host = await IdentityTestHost.CreateAsync(Roles.Admin, Roles.TeamMember);
+        var admin = await host.CreateUserAsync("Admin", Roles.Admin);
+        var existing = await host.CreateUserAsync("Existing Member", Roles.TeamMember);
+        var service = new UserService(host.UserManager);
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            service.InviteAsync(admin.Id, new InviteUserRequest
+            {
+                FullName = "Duplicate",
+                Email = existing.Email!,
+                Role = Roles.TeamMember
+            }));
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_IssuesANewPasswordThatReplacesTheOldOne()
+    {
+        using var host = await IdentityTestHost.CreateAsync(Roles.Admin, Roles.TeamMember);
+        var admin = await host.CreateUserAsync("Admin", Roles.Admin);
+        var member = await host.CreateUserAsync("Locked Out Member", Roles.TeamMember, password: "OldPassword1");
+        var service = new UserService(host.UserManager);
+
+        var result = await service.ResetPasswordAsync(admin.Id, member.Id);
+
+        Assert.Equal(member.Id, result.UserId);
+        var reloaded = await host.UserManager.FindByIdAsync(member.Id.ToString());
+        Assert.True(await host.UserManager.CheckPasswordAsync(reloaded!, result.TemporaryPassword));
+        Assert.False(await host.UserManager.CheckPasswordAsync(reloaded!, "OldPassword1"));
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_UnknownUser_ThrowsNotFound()
+    {
+        using var host = await IdentityTestHost.CreateAsync(Roles.Admin);
+        var admin = await host.CreateUserAsync("Admin", Roles.Admin);
+        var service = new UserService(host.UserManager);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => service.ResetPasswordAsync(admin.Id, Guid.NewGuid()));
+    }
 }

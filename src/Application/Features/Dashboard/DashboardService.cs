@@ -1,7 +1,10 @@
 using Application.Common.Interfaces;
 using Application.Common.Models;
 using Application.Features.Dashboard.Dtos;
+using Domain.Constants;
+using Domain.Entities;
 using Domain.Enums;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Features.Dashboard;
@@ -9,10 +12,12 @@ namespace Application.Features.Dashboard;
 public class DashboardService : IDashboardService
 {
     private readonly IAppDbContext _db;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public DashboardService(IAppDbContext db)
+    public DashboardService(IAppDbContext db, UserManager<ApplicationUser> userManager)
     {
         _db = db;
+        _userManager = userManager;
     }
 
     public static DateOnly CurrentWeekStart()
@@ -25,22 +30,52 @@ public class DashboardService : IDashboardService
     public async Task<DashboardSummaryDto> GetSummaryAsync(DateOnly? week, CancellationToken ct = default)
     {
         var weekStart = week ?? CurrentWeekStart();
+        var weekEnd = weekStart.AddDays(6);
 
         var weekReports = _db.Reports.AsNoTracking().Where(r => r.WeekStartDate == weekStart);
 
+        // "Total reports submitted this week" (spec Sec6): a raw count of report rows that
+        // have left Draft -- can exceed the team's headcount if someone reports against more
+        // than one project in the same week. Distinct from the compliance rate below, which
+        // is necessarily per-person.
         var totalSubmitted = await weekReports.CountAsync(r => r.CurrentVersionNumber >= 1, ct);
         var needsCorrectionCount = await weekReports.CountAsync(r => r.Status == ReportStatus.NeedsCorrection, ct);
 
         var openBlockersCount = await _db.ReportBlockers.AsNoTracking()
             .CountAsync(b => b.Report.WeekStartDate == weekStart && !b.IsResolved, ct);
 
-        var activeUserCount = await _db.Users.AsNoTracking().CountAsync(u => u.IsActive, ct);
-        var complianceRate = activeUserCount == 0 ? 0 : Math.Round(totalSubmitted * 100.0 / activeUserCount, 1);
+        // Compliance is about TeamMembers specifically -- Managers/Admins aren't expected to
+        // file their own weekly report, so they must not count in either side of the ratio.
+        var activeTeamMemberIds = (await _userManager.GetUsersInRoleAsync(Roles.TeamMember))
+            .Where(u => u.IsActive)
+            .Select(u => u.Id)
+            .ToHashSet();
+
+        var submittedMemberIds = await weekReports
+            .Where(r => r.CurrentVersionNumber >= 1 && activeTeamMemberIds.Contains(r.UserId))
+            .Select(r => r.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var totalTeamMembers = activeTeamMemberIds.Count;
+        var submittedMemberCount = submittedMemberIds.Count;
+        var complianceRate = totalTeamMembers == 0 ? 0 : Math.Round(submittedMemberCount * 100.0 / totalTeamMembers, 1);
+
+        // ASSUMPTION: there is no explicit per-report deadline in the schema. A member who
+        // hasn't submitted for a week whose end date has already passed is "late"; one for
+        // the current/a future week is merely "pending" -- not yet overdue.
+        var notYetSubmittedCount = totalTeamMembers - submittedMemberCount;
+        var isPastWeek = weekEnd < DateOnly.FromDateTime(DateTime.UtcNow);
+        var lateCount = isPastWeek ? notYetSubmittedCount : 0;
+        var pendingCount = isPastWeek ? 0 : notYetSubmittedCount;
 
         return new DashboardSummaryDto
         {
             WeekStartDate = weekStart,
             TotalSubmitted = totalSubmitted,
+            SubmittedMemberCount = submittedMemberCount,
+            PendingMemberCount = pendingCount,
+            LateMemberCount = lateCount,
             ComplianceRatePercent = complianceRate,
             NeedsCorrectionCount = needsCorrectionCount,
             OpenBlockersCount = openBlockersCount

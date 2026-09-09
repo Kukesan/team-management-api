@@ -124,9 +124,12 @@ builder.Services.AddHttpClient(AiService.HttpClientName, (sp, client) =>
     {
         client.BaseAddress = new Uri(aiSettings.BaseUrl);
     }
-    // Chat/summary calls involve an LLM round trip (plus, for summary, a Claude tool-use
-    // loop) so they run longer than typical CRUD calls to this API.
-    client.Timeout = TimeSpan.FromSeconds(60);
+    // Aligned with team-management-ai's own per-call OpenAI budget (services/llm.py,
+    // services/help.py: 20s per completion, 2 attempts, short backoff). /chat's tool loop
+    // can run up to 6 iterations, so this must comfortably exceed that realistic worst
+    // case; 120s still fails a truly hung request rather than waiting on the SDK's 600s
+    // default. AiService.PostAsync also applies its own bounded retry on top of this.
+    client.Timeout = TimeSpan.FromSeconds(120);
 });
 builder.Services.AddScoped<IAiService, AiService>();
 

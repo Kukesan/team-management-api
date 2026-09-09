@@ -77,6 +77,8 @@ public class ControllerAuthorizationTests
     {
         new object?[] { typeof(UsersController), nameof(UsersController.ChangeRole) },
         new object?[] { typeof(UsersController), nameof(UsersController.Deactivate) },
+        new object?[] { typeof(UsersController), nameof(UsersController.Invite) },
+        new object?[] { typeof(UsersController), nameof(UsersController.ResetPassword) },
     };
 
     [Theory]

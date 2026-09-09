@@ -44,4 +44,22 @@ public class UsersController : ControllerBase
         await _userService.DeactivateAsync(User.GetUserId(), id, ct);
         return NoContent();
     }
+
+    /// <summary>Creates the account immediately with a generated temporary password -- see
+    /// InvitedUserDto for why this isn't a real email-invite flow.</summary>
+    [HttpPost("invite")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<InvitedUserDto>> Invite(InviteUserRequest request, CancellationToken ct)
+    {
+        var result = await _userService.InviteAsync(User.GetUserId(), request, ct);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/reset-password")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<PasswordResetResultDto>> ResetPassword(Guid id, CancellationToken ct)
+    {
+        var result = await _userService.ResetPasswordAsync(User.GetUserId(), id, ct);
+        return Ok(result);
+    }
 }

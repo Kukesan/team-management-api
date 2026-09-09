@@ -6,13 +6,23 @@ namespace Application.Features.Dashboard.Dtos;
 public class DashboardSummaryDto
 {
     public DateOnly WeekStartDate { get; set; }
+
+    /// <summary>Raw count of report rows submitted this week -- can exceed team headcount
+    /// if a member reports against more than one project. See SubmittedMemberCount for the
+    /// per-person figure the compliance rate is based on.</summary>
     public int TotalSubmitted { get; set; }
 
-    /// <summary>
-    /// TotalSubmitted / active-user-count * 100. "Expected" reports = one per active
-    /// user for the week; there's no per-project reporting requirement, so this is a
-    /// simple headline number rather than a precise obligation count.
-    /// </summary>
+    /// <summary>Distinct active TeamMembers with at least one non-Draft report this week.</summary>
+    public int SubmittedMemberCount { get; set; }
+
+    /// <summary>Active TeamMembers with no submission yet, for a week that hasn't ended.</summary>
+    public int PendingMemberCount { get; set; }
+
+    /// <summary>Active TeamMembers with no submission, for a week whose end date has passed.</summary>
+    public int LateMemberCount { get; set; }
+
+    /// <summary>SubmittedMemberCount / active-TeamMember-count * 100 -- one report per person
+    /// per week, so this can never exceed 100%.</summary>
     public double ComplianceRatePercent { get; set; }
     public int NeedsCorrectionCount { get; set; }
     public int OpenBlockersCount { get; set; }

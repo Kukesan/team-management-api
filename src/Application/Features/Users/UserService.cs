@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Application.Common.Exceptions;
 using Application.Common.Models;
 using Application.Features.Users.Dtos;
@@ -119,9 +120,105 @@ public class UserService : IUserService
         await _userManager.UpdateAsync(user);
     }
 
+    public async Task<InvitedUserDto> InviteAsync(Guid actingAdminId, InviteUserRequest request, CancellationToken ct = default)
+    {
+        var existing = await _userManager.FindByEmailAsync(request.Email);
+        if (existing is not null)
+        {
+            throw new ConflictException($"A user with email '{request.Email}' already exists.");
+        }
+
+        var temporaryPassword = GenerateTemporaryPassword();
+        var user = new ApplicationUser
+        {
+            UserName = request.Email,
+            Email = request.Email,
+            FullName = request.FullName,
+            // No email-verification flow exists yet -- an admin-invited account is trusted
+            // by construction (only an Admin can call this endpoint).
+            EmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var createResult = await _userManager.CreateAsync(user, temporaryPassword);
+        if (!createResult.Succeeded)
+        {
+            throw new ValidationAppException(new Dictionary<string, string[]>
+            {
+                ["Email"] = createResult.Errors.Select(e => e.Description).ToArray()
+            });
+        }
+
+        await _userManager.AddToRoleAsync(user, request.Role);
+
+        return new InvitedUserDto
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email!,
+            Roles = new List<string> { request.Role },
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+            TemporaryPassword = temporaryPassword
+        };
+    }
+
+    public async Task<PasswordResetResultDto> ResetPasswordAsync(Guid actingAdminId, Guid userId, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("User", userId);
+
+        var temporaryPassword = GenerateTemporaryPassword();
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await _userManager.ResetPasswordAsync(user, token, temporaryPassword);
+        if (!result.Succeeded)
+        {
+            throw new ValidationAppException(new Dictionary<string, string[]>
+            {
+                ["Password"] = result.Errors.Select(e => e.Description).ToArray()
+            });
+        }
+
+        return new PasswordResetResultDto { UserId = user.Id, TemporaryPassword = temporaryPassword };
+    }
+
     private async Task<bool> IsLastAdminAsync(Guid excludingUserId, CancellationToken ct)
     {
         var admins = await _userManager.GetUsersInRoleAsync(Roles.Admin);
         return admins.Count(a => a.Id != excludingUserId) == 0;
+    }
+
+    /// <summary>
+    /// Generates a random password guaranteed to satisfy Identity's policy (>=8 chars,
+    /// upper+lower+digit -- see Program.cs/RegisterRequestValidator). Never logged; returned
+    /// to the caller exactly once so it can be handed to the new/locked-out user out of band.
+    /// </summary>
+    private static string GenerateTemporaryPassword()
+    {
+        const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no ambiguous I/O
+        const string lower = "abcdefghijkmnopqrstuvwxyz";
+        const string digits = "23456789";
+        const string all = upper + lower + digits;
+        const int length = 12;
+
+        var randomBytes = RandomNumberGenerator.GetBytes(length * 2);
+        var chars = new char[length];
+        chars[0] = upper[randomBytes[0] % upper.Length];
+        chars[1] = lower[randomBytes[1] % lower.Length];
+        chars[2] = digits[randomBytes[2] % digits.Length];
+        for (var i = 3; i < length; i++)
+        {
+            chars[i] = all[randomBytes[i] % all.Length];
+        }
+
+        // Fisher-Yates shuffle (using the second half of the random bytes) so the fixed
+        // upper/lower/digit slots above aren't always in positions 0-2.
+        for (var i = length - 1; i > 0; i--)
+        {
+            var j = randomBytes[length + i] % (i + 1);
+            (chars[i], chars[j]) = (chars[j], chars[i]);
+        }
+
+        return new string(chars);
     }
 }

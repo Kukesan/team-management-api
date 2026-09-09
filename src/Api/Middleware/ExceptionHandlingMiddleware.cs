@@ -44,12 +44,19 @@ public class ExceptionHandlingMiddleware
             ForbiddenException ex => (HttpStatusCode.Forbidden, ex.Message, null),
             ConflictException ex => (HttpStatusCode.Conflict, ex.Message, null),
             UnauthorizedAppException ex => (HttpStatusCode.Unauthorized, ex.Message, null),
+            ExternalServiceException ex => (HttpStatusCode.ServiceUnavailable, ex.Message, null),
             _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.", null)
         };
 
         if (status == HttpStatusCode.InternalServerError)
         {
             _logger.LogError(exception, "Unhandled exception processing {Method} {Path}", context.Request.Method, context.Request.Path);
+        }
+        else if (status == HttpStatusCode.ServiceUnavailable)
+        {
+            // Not a bug in this API -- a downstream dependency failed. Still worth a server-side
+            // trace (with the real cause, not shown to the client) so a spike is noticeable.
+            _logger.LogWarning(exception, "Downstream service unavailable processing {Method} {Path}", context.Request.Method, context.Request.Path);
         }
 
         context.Response.ContentType = "application/json";
