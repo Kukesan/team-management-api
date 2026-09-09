@@ -31,10 +31,14 @@ public class Report
     public ReportStatus Status { get; set; } = ReportStatus.Draft;
     public int CurrentVersionNumber { get; set; } = 0;
 
+    /// <summary>Optional free-text notes or links (spec Sec2: "Optional notes or links").</summary>
+    public string? Notes { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<ReportTaskItem> TaskItems { get; set; } = new List<ReportTaskItem>();
+    public ICollection<ReportNextWeekTask> NextWeekTasks { get; set; } = new List<ReportNextWeekTask>();
     public ICollection<ReportBlocker> Blockers { get; set; } = new List<ReportBlocker>();
     public ICollection<ReportAchievement> Achievements { get; set; } = new List<ReportAchievement>();
     public ICollection<ReportHoursBreakdown> HoursBreakdown { get; set; } = new List<ReportHoursBreakdown>();

@@ -69,6 +69,7 @@ public class ReportService : IReportService
         }
 
         _db.ReportTaskItems.RemoveRange(report.TaskItems);
+        _db.ReportNextWeekTasks.RemoveRange(report.NextWeekTasks);
         _db.ReportBlockers.RemoveRange(report.Blockers);
         _db.ReportAchievements.RemoveRange(report.Achievements);
         _db.ReportHoursBreakdowns.RemoveRange(report.HoursBreakdown);
@@ -87,6 +88,16 @@ public class ReportService : IReportService
                 TimePlannedHours = item.TimePlannedHours,
                 TimeSpentHours = item.TimeSpentHours,
                 Output = item.Output
+            });
+        }
+
+        foreach (var nextWeekTask in request.NextWeekTasks)
+        {
+            _db.ReportNextWeekTasks.Add(new ReportNextWeekTask
+            {
+                Id = Guid.NewGuid(),
+                ReportId = report.Id,
+                Description = nextWeekTask.Description
             });
         }
 
@@ -124,6 +135,7 @@ public class ReportService : IReportService
             });
         }
 
+        report.Notes = request.Notes;
         report.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -157,9 +169,11 @@ public class ReportService : IReportService
         var snapshot = new ReportContentSnapshotDto
         {
             TaskItems = report.TaskItems.Select(MapTaskItem).ToList(),
+            NextWeekTasks = report.NextWeekTasks.Select(MapNextWeekTask).ToList(),
             Blockers = report.Blockers.Select(MapBlocker).ToList(),
             Achievements = report.Achievements.Select(MapAchievement).ToList(),
-            HoursBreakdown = report.HoursBreakdown.Select(MapHours).ToList()
+            HoursBreakdown = report.HoursBreakdown.Select(MapHours).ToList(),
+            Notes = report.Notes
         };
 
         var version = new ReportVersion
@@ -245,9 +259,11 @@ public class ReportService : IReportService
             VersionNumber = version.VersionNumber,
             SubmittedAt = version.SubmittedAt,
             TaskItems = snapshot.TaskItems,
+            NextWeekTasks = snapshot.NextWeekTasks,
             Blockers = snapshot.Blockers,
             Achievements = snapshot.Achievements,
-            HoursBreakdown = snapshot.HoursBreakdown
+            HoursBreakdown = snapshot.HoursBreakdown,
+            Notes = snapshot.Notes
         };
     }
 
@@ -256,6 +272,9 @@ public class ReportService : IReportService
         var reports = _db.Reports.AsNoTracking()
             .Include(r => r.User)
             .Include(r => r.Project)
+            // "Draft — only visible to them" (spec §3): a draft never appears on the manager's
+            // dashboard regardless of filters, even if a caller explicitly asks for Status=Draft.
+            .Where(r => r.Status != ReportStatus.Draft)
             .AsQueryable();
 
         if (query.UserId.HasValue)
@@ -268,7 +287,7 @@ public class ReportService : IReportService
             reports = reports.Where(r => r.ProjectId == query.ProjectId.Value);
         }
 
-        if (query.Status.HasValue)
+        if (query.Status.HasValue && query.Status.Value != ReportStatus.Draft)
         {
             reports = reports.Where(r => r.Status == query.Status.Value);
         }
@@ -334,6 +353,13 @@ public class ReportService : IReportService
         {
             throw new ForbiddenException("You do not have access to this report.");
         }
+
+        // "Draft — only visible to them" (spec §3): a manager's oversight access does not
+        // extend to another user's still-private draft. Only the owner may see it pre-submission.
+        if (!isOwner && report.Status == ReportStatus.Draft)
+        {
+            throw new ForbiddenException("This report is still a draft and has not been submitted for review.");
+        }
     }
 
     private async Task<Report> LoadReportWithChildrenAsync(Guid reportId, CancellationToken ct)
@@ -342,6 +368,7 @@ public class ReportService : IReportService
             .Include(r => r.User)
             .Include(r => r.Project)
             .Include(r => r.TaskItems)
+            .Include(r => r.NextWeekTasks)
             .Include(r => r.Blockers)
             .Include(r => r.Achievements)
             .Include(r => r.HoursBreakdown)
@@ -403,9 +430,11 @@ public class ReportService : IReportService
         CreatedAt = report.CreatedAt,
         UpdatedAt = report.UpdatedAt,
         TaskItems = report.TaskItems.Select(MapTaskItem).ToList(),
+        NextWeekTasks = report.NextWeekTasks.Select(MapNextWeekTask).ToList(),
         Blockers = report.Blockers.Select(MapBlocker).ToList(),
         Achievements = report.Achievements.Select(MapAchievement).ToList(),
         HoursBreakdown = report.HoursBreakdown.Select(MapHours).ToList(),
+        Notes = report.Notes,
         Reviews = report.Reviews
             .OrderByDescending(rv => rv.CreatedAt)
             .Select(rv => new ReportReviewDto
@@ -432,6 +461,12 @@ public class ReportService : IReportService
         TimePlannedHours = t.TimePlannedHours,
         TimeSpentHours = t.TimeSpentHours,
         Output = t.Output
+    };
+
+    private static NextWeekTaskDto MapNextWeekTask(ReportNextWeekTask t) => new()
+    {
+        Id = t.Id,
+        Description = t.Description
     };
 
     private static BlockerDto MapBlocker(ReportBlocker b) => new()

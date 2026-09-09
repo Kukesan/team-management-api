@@ -19,6 +19,7 @@ public interface IAppDbContext
     DbSet<Report> Reports { get; }
     DbSet<ReportVersion> ReportVersions { get; }
     DbSet<ReportTaskItem> ReportTaskItems { get; }
+    DbSet<ReportNextWeekTask> ReportNextWeekTasks { get; }
     DbSet<ReportBlocker> ReportBlockers { get; }
     DbSet<ReportAchievement> ReportAchievements { get; }
     DbSet<ReportHoursBreakdown> ReportHoursBreakdowns { get; }

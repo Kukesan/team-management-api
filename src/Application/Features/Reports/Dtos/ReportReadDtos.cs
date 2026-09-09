@@ -29,6 +29,12 @@ public class TaskItemDto
     public string? Output { get; set; }
 }
 
+public class NextWeekTaskDto
+{
+    public Guid Id { get; set; }
+    public string Description { get; set; } = string.Empty;
+}
+
 public class BlockerDto
 {
     public Guid Id { get; set; }
@@ -77,9 +83,11 @@ public class ReportDetailDto
     public DateTime UpdatedAt { get; set; }
 
     public List<TaskItemDto> TaskItems { get; set; } = new();
+    public List<NextWeekTaskDto> NextWeekTasks { get; set; } = new();
     public List<BlockerDto> Blockers { get; set; } = new();
     public List<AchievementDto> Achievements { get; set; } = new();
     public List<HoursBreakdownDto> HoursBreakdown { get; set; } = new();
+    public string? Notes { get; set; }
     public List<ReportReviewDto> Reviews { get; set; } = new();
 }
 
@@ -96,16 +104,20 @@ public class ReportVersionDetailDto
     public int VersionNumber { get; set; }
     public DateTime SubmittedAt { get; set; }
     public List<TaskItemDto> TaskItems { get; set; } = new();
+    public List<NextWeekTaskDto> NextWeekTasks { get; set; } = new();
     public List<BlockerDto> Blockers { get; set; } = new();
     public List<AchievementDto> Achievements { get; set; } = new();
     public List<HoursBreakdownDto> HoursBreakdown { get; set; } = new();
+    public string? Notes { get; set; }
 }
 
 /// <summary>Full copy of a report's content, serialized into ReportVersion.ContentSnapshot at submit time.</summary>
 public class ReportContentSnapshotDto
 {
     public List<TaskItemDto> TaskItems { get; set; } = new();
+    public List<NextWeekTaskDto> NextWeekTasks { get; set; } = new();
     public List<BlockerDto> Blockers { get; set; } = new();
     public List<AchievementDto> Achievements { get; set; } = new();
     public List<HoursBreakdownDto> HoursBreakdown { get; set; } = new();
+    public string? Notes { get; set; }
 }

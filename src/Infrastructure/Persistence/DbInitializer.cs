@@ -312,6 +312,7 @@ public static class DbInitializer
             WeekEndDate = weekEnd,
             Status = ReportStatus.Draft,
             CurrentVersionNumber = 0,
+            Notes = targetStatus == ReportStatus.Draft ? null : "Tracking hours against the sprint budget; see linked board.",
             CreatedAt = AsUtc(weekStart),
             UpdatedAt = AsUtc(weekStart)
         };
@@ -334,6 +335,12 @@ public static class DbInitializer
                 Status = TaskItemStatus.Completed, TimePlannedHours = 6, TimeSpentHours = 5,
                 Output = "Reviewed teammates' PRs"
             }
+        };
+
+        var nextWeekTasks = new List<ReportNextWeekTask>
+        {
+            new() { Id = Guid.NewGuid(), ReportId = report.Id, Description = $"Continue {project.Name} follow-up work" },
+            new() { Id = Guid.NewGuid(), ReportId = report.Id, Description = "Sprint planning and backlog grooming" }
         };
 
         var blockers = new List<ReportBlocker>
@@ -363,6 +370,7 @@ public static class DbInitializer
 
         db.Reports.Add(report);
         db.ReportTaskItems.AddRange(taskItems);
+        db.ReportNextWeekTasks.AddRange(nextWeekTasks);
         db.ReportBlockers.AddRange(blockers);
         db.ReportAchievements.AddRange(achievements);
         db.ReportHoursBreakdowns.AddRange(hours);

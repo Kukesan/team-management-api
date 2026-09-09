@@ -8,11 +8,21 @@ public class UpdateReportRequestValidator : AbstractValidator<UpdateReportReques
     public UpdateReportRequestValidator()
     {
         RuleFor(x => x.TaskItems).NotEmpty().WithMessage("At least one task item is required.");
+        RuleFor(x => x.Notes).MaximumLength(2000);
 
         RuleForEach(x => x.TaskItems).SetValidator(new TaskItemRequestValidator());
+        RuleForEach(x => x.NextWeekTasks).SetValidator(new NextWeekTaskRequestValidator());
         RuleForEach(x => x.Blockers).SetValidator(new BlockerRequestValidator());
         RuleForEach(x => x.Achievements).SetValidator(new AchievementRequestValidator());
         RuleForEach(x => x.HoursBreakdown).SetValidator(new HoursBreakdownRequestValidator());
+    }
+}
+
+public class NextWeekTaskRequestValidator : AbstractValidator<NextWeekTaskRequest>
+{
+    public NextWeekTaskRequestValidator()
+    {
+        RuleFor(x => x.Description).NotEmpty().MaximumLength(2000);
     }
 }
 

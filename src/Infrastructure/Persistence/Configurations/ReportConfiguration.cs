@@ -11,6 +11,7 @@ public class ReportConfiguration : IEntityTypeConfiguration<Report>
         builder.Property(r => r.WeekStartDate).HasColumnType("date");
         builder.Property(r => r.WeekEndDate).HasColumnType("date");
         builder.Property(r => r.Status).HasConversion<string>().HasMaxLength(30);
+        builder.Property(r => r.Notes).HasMaxLength(2000);
 
         builder.HasIndex(r => new { r.UserId, r.ProjectId, r.WeekStartDate });
         builder.HasIndex(r => r.Status);

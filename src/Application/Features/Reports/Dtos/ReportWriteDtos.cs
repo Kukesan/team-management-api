@@ -18,9 +18,13 @@ public class CreateReportRequest
 public class UpdateReportRequest
 {
     public List<TaskItemRequest> TaskItems { get; set; } = new();
+    public List<NextWeekTaskRequest> NextWeekTasks { get; set; } = new();
     public List<BlockerRequest> Blockers { get; set; } = new();
     public List<AchievementRequest> Achievements { get; set; } = new();
     public List<HoursBreakdownRequest> HoursBreakdown { get; set; } = new();
+
+    /// <summary>Optional free-text notes or links.</summary>
+    public string? Notes { get; set; }
 }
 
 public class TaskItemRequest
@@ -33,6 +37,11 @@ public class TaskItemRequest
     public decimal TimePlannedHours { get; set; }
     public decimal TimeSpentHours { get; set; }
     public string? Output { get; set; }
+}
+
+public class NextWeekTaskRequest
+{
+    public string Description { get; set; } = string.Empty;
 }
 
 public class BlockerRequest

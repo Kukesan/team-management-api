@@ -17,6 +17,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<ReportVersion> ReportVersions => Set<ReportVersion>();
     public DbSet<ReportTaskItem> ReportTaskItems => Set<ReportTaskItem>();
+    public DbSet<ReportNextWeekTask> ReportNextWeekTasks => Set<ReportNextWeekTask>();
     public DbSet<ReportBlocker> ReportBlockers => Set<ReportBlocker>();
     public DbSet<ReportAchievement> ReportAchievements => Set<ReportAchievement>();
     public DbSet<ReportHoursBreakdown> ReportHoursBreakdowns => Set<ReportHoursBreakdown>();
